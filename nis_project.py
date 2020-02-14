@@ -15,11 +15,11 @@ def main():
 	opt_tour = read_tour("att48.opt.tour", nodes)
 	opt_tour_dist = calc_route_dist(opt_tour)
 
-	max_step = 300
-	iterations = 3
+	max_step = 3000
+	iterations = 1
 
-	# test_search_algo(sim_ann, nodes, max_step, iterations, opt_tour_dist)
-	# test_search_algo(tabu_search, nodes, max_step, iterations, opt_tour_dist)
+	test_search_algo(sim_ann, nodes, max_step, iterations, opt_tour_dist)
+	test_search_algo(tabu_search, nodes, max_step, iterations, opt_tour_dist)
 	# test_search_algo(genetic, nodes, max_step, iterations, opt_tour_dist)
 
 	genetic(nodes, max_step)
@@ -186,7 +186,7 @@ def test_search_algo(algo, nodes, max_step, iterations, opt_tour_dist):
 
 """
 NAME:   valid_route
-RETURN: Bool
+RETURN: Boolean value
 DESC: Checks that each node has been visited on the route once and only once.
 """
 def valid_route(nodes, route):
@@ -299,6 +299,11 @@ TABU SEARCH FUNCTIONS
 ------------------------------------------------------------------------------------------------------------------------------------------------
 """
 
+"""
+NAME:   tabu_search
+RETURN: List of Node objects.
+DESC:   The tabu search algorithm.
+"""
 def tabu_search(nodes, max_step):
 
 	max_tabu_size = 15
@@ -313,55 +318,74 @@ def tabu_search(nodes, max_step):
 	best_route = copy.deepcopy(best_cand )
 	best_dist = copy.deepcopy(best_cand_dist)
 
+	# Creates tabu list and appends the current best solution.
 	tabu = []
 	tabu.append(best_route[:])
 
 	for i in range(0, max_step):
 
+		# Generates neighbourhood solutions of the current route.
 		neighbourhood = get_neighbourhood(best_cand)
+
+		# Finds the best candidate solution in the neighbourhood that is not present in the tabu list.
 		best_cand = copy.deepcopy(neighbourhood[0])
 		best_cand_dist = calc_route_dist(best_cand)
-
 		for cand in neighbourhood:
 			cand_dist = calc_route_dist(cand)
 			if not in_tabu(tabu, cand) and (cand_dist < best_cand_dist):
 				best_cand = copy.deepcopy(cand)
 				best_cand_dist = calc_route_dist(best_cand)
 
+		# Compares the best candidate solution to the current best solution, and updates the current best accordingly.
 		if best_cand_dist < best_dist:
 			best_route = copy.deepcopy(best_cand)
 			best_dist = copy.deepcopy(best_cand_dist)
 
+		# Updates tabu list by appending the best candiate solution. If the tabu list is above the maximum size the oldest candidate solution is removed.
 		tabu.append(best_cand[:])
-
 		if len(tabu) > max_tabu_size:
 			tabu = tabu [:-1]
 
 	return best_route
 
+"""
+NAME:   get_neighbourhood
+RETURN: 2D List of Node objects.
+DESC:   Generates all possible neighbour solutions of a given route by reversing the list between every two unique element pairs.
+"""
 def get_neighbourhood(route):
 
 	neighbourhood = []
 
+	# Iterates over each unique cobination of nodes in the route.
 	for i in range(0, len(route)):
 		for j in range(i, len(route)):
 
+			# Reverses route between the two selected nodes.
 			rev = route[i:j]
 			rev.reverse()
 
+			# Adds new route to the neighbourhood.
 			new_route = route[:i] + rev + route[j:]
-			new_dist = calc_route_dist(new_route)
-
 			neighbourhood.append(new_route[:])
 
 	return neighbourhood
 
-
+"""
+NAME:   compare_routes
+RETURN: Boolean value
+DESC:   Iterates over two given routes and compares then. If they're the same returns the value true, else it returns false.
+"""
 def compare_routes(r1, r2):
 	for i in range(0, len(r1)):
 		if r1[i].id != r2[i].id: return False
 	return True 
 
+"""
+NAME:   in_tabu
+RETURN: Boolean value
+DESC:   Compares a candidate route to every route in the tabu list. If the candidate is found in the tabu list the value true is returned, else false.
+"""
 def in_tabu(tabu, cand):
 	for i in tabu:
 		if compare_routes(i, cand): return True
