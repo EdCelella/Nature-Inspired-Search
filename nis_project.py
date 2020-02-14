@@ -1,3 +1,4 @@
+from __future__ import division
 import math
 import random
 import copy
@@ -16,13 +17,13 @@ def main():
 	opt_tour_dist = calc_route_dist(opt_tour)
 
 	max_step = 3000
-	iterations = 1
+	iterations = 30
 
-	test_search_algo(sim_ann, nodes, max_step, iterations, opt_tour_dist)
-	test_search_algo(tabu_search, nodes, max_step, iterations, opt_tour_dist)
-	# test_search_algo(genetic, nodes, max_step, iterations, opt_tour_dist)
+	optimise_parameters(nodes, max_step, iterations)
 
-	genetic(nodes, max_step)
+	# test_search_algo(sim_ann, nodes, max_step, iterations, opt_tour, opt_tour_dist)
+	# test_search_algo(tabu_search, nodes, max_step, iterations, opt_tour, opt_tour_dist)
+	# test_search_algo(genetic, nodes, max_step, iterations, opt_tour, opt_tour_dist)
 
 
 """
@@ -150,22 +151,23 @@ NAME:   test_search_algo
 RETURN: None
 DESC:   Runs a given search algorithm a given amount of times and outputs all the solutions given, as well as the average.
 """
-def test_search_algo(algo, nodes, max_step, iterations, opt_tour_dist):
+def test_search_algo(algo, nodes, max_step, iterations, opt_tour, opt_tour_dist):
 
-	solutions = []
+	print(opt_tour_dist)
+
+	
+	average = 0
 
 	# Runs the search algorithm repeatedly for the amount of iterations specified, and stores all solutions.
 	for i in range(0, iterations):
-		solutions.append( algo(nodes, max_step) )
+		solution = algo(nodes, max_step)
 
-	# Checks each solution is valid, and outputs each solution distance.
-	average = 0
-	for i in range(0, iterations):
+		# Checks each solution is valid, and outputs each solution distance.
 
 		dist_colour, valid_colour = "\33[31m", "\33[31m"
 
-		d = calc_route_dist(solutions[i])
-		valid = valid_route(nodes, solutions[i])
+		d = calc_route_dist(solution)
+		valid = valid_route(nodes, solution)
 
 		if d <= (opt_tour_dist * 1.1): dist_colour = "\33[32m"
 		elif d <= (opt_tour_dist * 1.2): dist_colour = "\33[34m"
@@ -174,6 +176,15 @@ def test_search_algo(algo, nodes, max_step, iterations, opt_tour_dist):
 		average += d
 
 		print("Iteration %d - Distance: %s%d\33[0m - Valid: %s%r\33[0m" % (i, dist_colour, d, valid_colour, valid))
+
+		if d <= opt_tour_dist:
+			print("----------------------------")
+			print_route(solution)
+			print_route(opt_tour_dist)
+			print(compare_routes(solution, opt_tour))
+			# print("\33[34mOptimal Solution Found!\33[0m")
+			print("----------------------------")
+			break
 	
 	average /= iterations
 
@@ -205,6 +216,40 @@ def valid_route(nodes, route):
 
 	return True
 
+def optimise_parameters(nodes, max_step, iterations):
+
+	print("--------------------------\nSimulated Annealing - Optimisation\n--------------------------")
+
+	a_opt, t_0_opt = 0.8, 0.1
+
+	best_dist = calc_route_dist(sim_ann(nodes, max_step, 1, a_opt))
+	for i in range(0, 10):
+
+		a = 0.8 + float(i)/100
+
+		print(0.8 + i/100)
+
+		curr_dist = calc_route_dist(sim_ann(nodes, max_step, 1, a))
+		print("Cooling rate %d ≈ %d" % (a, curr_dist))
+
+		if curr_dist < best_dist: a_opt = a
+
+	# for t in range(0.2, 1.1, 0.1):
+
+	# 	curr_dist = calc_route_dist(sim_ann(nodes, max_step, t, 0.8))
+	# 	print("Initial temperature %d ≈ %d" % (a, curr_dist))
+
+	# 	if curr_dist < best_dist: t_0_opt = t
+
+	print()
+	print(a_opt)
+	print(t_0_opt)
+
+
+	# sim_ann(nodes, max_step, t_0 = 1, a = 0.7)
+
+	return 0
+
 """
 ------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -218,7 +263,7 @@ NAME:   sim_ann
 RETURN: List of Node objects
 DESC:   The simulated annealing algorithm.
 """
-def sim_ann(nodes, max_step):
+def sim_ann(nodes, max_step, t_0 = 1, a = 0.8):
 
 	route = copy.deepcopy(nodes)
 
@@ -232,7 +277,7 @@ def sim_ann(nodes, max_step):
 
 	for i in range(0, max_step):
 
-		t = temperature(i/max_step)
+		t = temperature(i, t_0, a)
 
 		# Generated new route and calculates distance.
 		new_route = generate_neighbour_solution(route)
@@ -256,12 +301,10 @@ NAME:   temperature
 RETURN: Float value
 DESC:   Returns the temperature value according to the schedule defined as: (initial temp)/(1 + (cooling factor ^ current step)). The less amount of steps remaining the lower the value returned.
 """
-def temperature(k):
-	t_0 = 1
+def temperature(k, t_0, a):
 	# a = 0.8
-	# return t_0  * (a ** k)
-	a = 0.7
-	return t_0 / 1 + (a ** k)
+	return t_0  * (a ** k)
+	# return t_0 / 1 + (a ** k)
 
 """
 NAME:   P
@@ -280,8 +323,8 @@ DESC:   Randomly reverses a section of the route to generate a neighbour solutio
 def generate_neighbour_solution(route):
 
 	# Generates two random numbers, which represent indexs in the route list.
-	start = random.randrange(0, len(route)-1, 1)
-	end = random.randrange(start, len(route)-1, 1)
+	start = random.randrange(0, len(route), 1)
+	end = random.randrange(start, len(route), 1)
 
 	# Flips the list between the two random indexs.
 	rev = route[start:end]
@@ -304,9 +347,7 @@ NAME:   tabu_search
 RETURN: List of Node objects.
 DESC:   The tabu search algorithm.
 """
-def tabu_search(nodes, max_step):
-
-	max_tabu_size = 15
+def tabu_search(nodes, max_step, max_tabu_size = 15):
 
 	best_cand = copy.deepcopy(nodes)
 
@@ -400,84 +441,148 @@ GENETIC ALGORITHM FUNCTIONS
 ------------------------------------------------------------------------------------------------------------------------------------------------
 """
 
-def genetic(nodes, max_generations):
+class Individual:
+	def __init__(self, _route):
+		self.route = _route
+		self.fitness = calc_route_dist(_route)
 
+"""
+NAME:   genetic
+RETURN: List of Node objects.
+DESC:   The genetic evolutionary algorithm.
+"""
+def genetic(nodes, max_generations, pop_size = 30, tour_size = 2, mutation_p = 0.5, elite = 0.1):
+
+	# Sets the elitism constant for each generation.
+	elite = math.ceil(pop_size * elite)
+
+	# Generates initial random population.
 	route = copy.deepcopy(nodes)
-
-	pop_size = 30
-	population, pop_fitness = [], []
-
-	# Generates initial random population, and calculates fitness.
+	population = []
 	for i in range(0, pop_size):
 		random.shuffle(route)
-		population.append(route[:])
-		pop_fitness.append(calc_route_dist(route))
+		population.append(Individual(route[:]))
 
 	for i in range(0, max_generations):
 
-		p1, p2 = selection(pop_fitness)
+		# Generates children from the current population.
+		# Selects two parents via tournament selection, and applies an order crossover operator which generates two new children.
+		children = []
+		while len(children) < pop_size:
+			p1, p2 = selection(population, pop_size, tour_size)
+			c1, c2 = variation(p1.route, p2.route)
+			children.append(c1)
+			children.append(c2)
 
-		# new_pop = variation(population[p1], population[p2])
+		# Forms now population based on elitism constant and mutation probability.
+		population = reproduction(population, children, pop_size, elite, mutation_p)
 
-		# new_fitness = [0] * pop_size
-		# for i in range(0, pop_size):
-		# 	new_fitness[i] = calc_route_dist(new_pop[i])
-
-		# population, pop_fitness = reproduction(population, pop_fitness, new_pop, new_fitness)
-
+	# Finds and returns the solution with the lowest distance in the final population.
 	best_ind = 0
 	for i in range(0, pop_size):
-		if pop_fitness[i] < pop_fitness[best_ind]:
+		if population[i].fitness < population[best_ind].fitness:
 			best_ind = i
+	return population[best_ind].route
 
-	return population[best_ind]
+"""
+NAME:   selection
+RETURN: Two Individual objects (two routes with fitness).
+DESC:   Implementation of tournament selection.
+"""
+def selection(population, pop_size, tour_size):
 
+	# Selects a subset of unique parents from the population. The amount selected is determined by the set tournament size (tour_size).
+	selected = set()
+	while len(selected) < tour_size:
+		p = random.randrange(0, pop_size, 1)
+		selected.add(p)
 
+	# The two parents with the lowest distances in the subset are found and returned.
+	p1 = selected.pop()
+	p2 = selected.pop()
+	for i in selected:
+		if population[i].fitness < population[p1].fitness:
+			if population[p1].fitness < population[p2].fitness: p2 = p1
+			p1 = i
+		elif population[i].fitness < population[p2].fitness: p2 = i
 
-def selection(pop_fitness):
-	return 0, 0
+	return population[p1], population[p2]
 
+"""
+NAME:   variation
+RETURN: Two Individual objects (two routes with fitness).
+DESC:   Given two routes, produces two offspring using the order crossover operator.
+"""
 def variation(p1, p2):
-	return [None] * 30
 
-def reproduction(population, pop_fitness, new_pop, new_fitness):
-	return [None] * 30
+	route_len = len(p1)
 
+	# Selects two random cutoff points.
+	start = random.randrange(0, route_len, 1)
+	end = random.randrange(start, route_len, 1)
 
+	# The section of the route between the cutoff points is retained.
+	off1 = p1[start:end]
+	off2 = p2[start:end]
 
+	# Each parents route starting from the second cut off point is retained, with existing bits between the cutoff points removed.
+	temp1 = remove_duplicates(p2[end:] + p2[:end], off1)
+	temp2 = remove_duplicates(p1[end:] + p1[:end], off2)
 
+	# The middle cutoff section is merged with the remaining route of the other parent. Generating two offspring.
+	off1 = temp1[route_len-end:] + off1 + temp1[:route_len-end]
+	off2 = temp2[route_len-end:] + off2 + temp2[:route_len-end]
 
-		
+	return Individual(off1), Individual(off2)
 
+"""
+NAME:   remove_duplicates
+RETURN: List of Node objects.
+DESC:   Removes any nodes in route 1 that are present in route 2 (utilised for ordered crossover variation).
+"""
+def remove_duplicates(r1, r2):
 
+	new_r = []
+	for i in r1:
+		duplicate = False
+		for j in r2:
+			if i.id == j.id: 
+				duplicate = True
+				break
+		if not duplicate:
+			new_r.append(i)
+	return new_r
 
+"""
+NAME:   reproduction
+RETURN: List of Individual objects.
+DESC:   Produces a new population from the parents and children.
+"""
+def reproduction(parents, children, pop_size, elite, mutation_p):
 
+	# Sorts the parents and children according their fitness.
+	parents.sort(key=lambda x: x.fitness)
+	children.sort(key=lambda x: x.fitness)
 
+	# The new population retains the best individuals from the parents. The amount retained is set by the 'elite' constant.
+	new_pop = parents[:elite]
 
+	# The best children are added to the new population until it is full. Each child undergoes a random mutation with probability 'mutation_p'.
+	c = 0
+	while(len(new_pop) < pop_size):
+		c1 = mutate(children[c].route, mutation_p)
+		new_pop.append(c1)
 
+	return new_pop
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+"""
+NAME:   mutate
+RETURN: Individual object.
+DESC:   Mutates a route with probabiliy 'mutation_p' by applying the 2-opt algorithm to the route.
+"""
+def mutate(route, mutation_p):
+	if mutation_p > random.uniform(0, 1): route = generate_neighbour_solution(route) # Function defined for simmulated annealing.
+	return Individual(route)
 
 if __name__ == "__main__":
 	main()
