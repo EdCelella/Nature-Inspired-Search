@@ -2,6 +2,7 @@ from __future__ import division
 import math
 import random
 import copy
+from itertools import product
 
 # Class to store node data.
 class Node:
@@ -152,9 +153,6 @@ RETURN: None
 DESC:   Runs a given search algorithm a given amount of times and outputs all the solutions given, as well as the average.
 """
 def test_search_algo(algo, nodes, max_step, iterations, opt_tour, opt_tour_dist):
-
-	print(opt_tour_dist)
-
 	
 	average = 0
 
@@ -216,40 +214,6 @@ def valid_route(nodes, route):
 
 	return True
 
-def optimise_parameters(nodes, max_step, iterations):
-
-	print("--------------------------\nSimulated Annealing - Optimisation\n--------------------------")
-
-	a_opt, t_0_opt = 0.8, 0.1
-
-	best_dist = calc_route_dist(sim_ann(nodes, max_step, 1, a_opt))
-	for i in range(0, 10):
-
-		a = 0.8 + float(i)/100
-
-		print(0.8 + i/100)
-
-		curr_dist = calc_route_dist(sim_ann(nodes, max_step, 1, a))
-		print("Cooling rate %d ≈ %d" % (a, curr_dist))
-
-		if curr_dist < best_dist: a_opt = a
-
-	# for t in range(0.2, 1.1, 0.1):
-
-	# 	curr_dist = calc_route_dist(sim_ann(nodes, max_step, t, 0.8))
-	# 	print("Initial temperature %d ≈ %d" % (a, curr_dist))
-
-	# 	if curr_dist < best_dist: t_0_opt = t
-
-	print()
-	print(a_opt)
-	print(t_0_opt)
-
-
-	# sim_ann(nodes, max_step, t_0 = 1, a = 0.7)
-
-	return 0
-
 """
 ------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -263,12 +227,12 @@ NAME:   sim_ann
 RETURN: List of Node objects
 DESC:   The simulated annealing algorithm.
 """
-def sim_ann(nodes, max_step, t_0 = 1, a = 0.8):
+def sim_ann(nodes, max_step, t_0 = 1, a = 0.8, seed_route=False):
 
 	route = copy.deepcopy(nodes)
 
-	# Generates random initial solution.
-	random.shuffle(route)
+	# Generates random initial solution, unless a seed route is given (for optimisation).
+	if not seed_route: random.shuffle(route)
 	curr_dist = calc_route_dist(route)
 
 	# Sets the best route and distance to the initial solution
@@ -347,12 +311,12 @@ NAME:   tabu_search
 RETURN: List of Node objects.
 DESC:   The tabu search algorithm.
 """
-def tabu_search(nodes, max_step, max_tabu_size = 15):
+def tabu_search(nodes, max_step, max_tabu_size = 15, seed_route=False):
 
 	best_cand = copy.deepcopy(nodes)
 
-	# Generates random initial solution.
-	random.shuffle(best_cand )
+	# Generates random initial solution, unless a seed route is provided.
+	if not seed_route: random.shuffle(best_cand)
 	best_cand_dist = calc_route_dist(best_cand)
 
 	# Sets the best route and distance to the initial solution
@@ -583,6 +547,153 @@ DESC:   Mutates a route with probabiliy 'mutation_p' by applying the 2-opt algor
 def mutate(route, mutation_p):
 	if mutation_p > random.uniform(0, 1): route = generate_neighbour_solution(route) # Function defined for simmulated annealing.
 	return Individual(route)
+
+"""
+------------------------------------------------------------------------------------------------------------------------------------------------
+
+HYPER PARAMETER OPTIMISATION FUNCTIONS
+
+------------------------------------------------------------------------------------------------------------------------------------------------
+"""
+
+"""
+NAME:   optimise_parameters
+RETURN: None
+DESC:   Generates a seed route and runs each parameter optimisation function for each algorithm.
+"""
+def optimise_parameters(nodes, max_step, iterations):
+
+	# Produces a seed route which is used as the start for each algorithm.
+	seed_route = copy.deepcopy(nodes)
+	random.shuffle(seed_route)
+
+	# optimise_sim_ann(seed_route, max_step, iterations)
+	# optimise_tabu(seed_route, max_step, iterations)
+	optimise_genetic(seed_route, max_step, iterations)
+
+"""
+NAME:   optimise_sim_ann
+RETURN: None
+DESC:   Generates a set of hyper-parameters to test over. Outputs the average distance of the simmulated annealing algorithm given each set of hyper-parameters, and then outputs the hyper-parameters with the best results. Due to a maximum of 30 iterations for all tests these values are given as approximates.
+"""
+def optimise_sim_ann(seed_route, max_step, iterations):
+
+	print("\n--------------------------\nSimulated Annealing - Optimisation\n--------------------------\n")
+
+	# Generates lists of test values for the cooling rate and initial temerature.
+	a_base, t_0_base = 0.8, 0.8
+	a_list = [round(x * 0.025 + a_base, 3) for x in range(0, 5)]
+	t_0_list = [round(x * 0.1 + t_0_base, 2) for x in range(0, 3)]
+
+	# Produces list of all unique combinations of the hyper paramter test values.
+	simm_ann_hyper = list(product(t_0_list, a_list))[1:]
+
+	# Defines the amount od trials for each set of hyper-parameters.
+	trials = int(iterations / len(simm_ann_hyper) + 1)
+
+	# Calculates the average route distance using the base hyper-parameter values.
+	a_opt, t_0_opt, best_dist = a_base, t_0_base, 0
+	for i in range(0, trials): best_dist += calc_route_dist(sim_ann(seed_route, max_step, t_0_base, a_base, True))
+	best_dist /= trials
+
+	print("Initial Temp: %f - Cooling rate: %f ≈ %d" % (a_base, t_0_base, best_dist))
+
+	# Iterates over the hyper parameter set.
+	for i in simm_ann_hyper:
+
+		# Calculates the average distance over the amount of given trials for each set of hyper-parameters.
+		dist = 0
+		for j in range(0, trials): dist += calc_route_dist(sim_ann(seed_route, max_step, i[0], i[1], True))
+		dist /= trials
+
+		print("Initial Temp: %f - Cooling rate: %f ≈ %d" % (i[0], i[1], dist))
+
+		# Updates the best hyper-parameters if the average distance is better than the current best.
+		if dist < best_dist:
+			t_0_opt = i[0]
+			a_opt = i[1]
+			best_dist = dist
+
+	print("\nOptimal Parameters for Simulated Annealing:\n\tCooling Rate ≈ %f\n\tInitial Temp ≈ %f\n" % (a_opt, t_0_opt))
+
+"""
+NAME:   optimise_tabu
+RETURN: None
+DESC:   Generates a set of hyper-parameters to test over. Outputs the average distance of the tabu search algorithm given each set of hyper-parameters, and then outputs the hyper-parameters with the best results. Due to a maximum of 30 iterations for all tests these values are given as approximates.
+"""
+def optimise_tabu(seed_route, max_step, iterations):
+
+	print("\n--------------------------\nTabu Search - Optimisation\n--------------------------\n")
+
+	# Produces a list of different tabu list sizes to test.
+	tabu_hyper = [x * 10 for x in range(1, 10)]
+
+	# Calculates the amount of trials per tabu list size allowed within the maxiumum 30 trials.
+	trials = int(iterations / len(tabu_hyper))
+
+	# Calculates the average route distance over the amount of trials for the base tabu list size.
+	best_dist = calc_route_dist(tabu_search(seed_route, max_step, tabu_hyper[0], True))
+	tabu_opt = tabu_hyper[0]
+
+	print("Tabu list size: %d ≈ %d" % (tabu_opt, best_dist))
+
+	# Iterates over the different tabu list sizes.
+	for i in tabu_hyper[1:]:
+
+		# Calculates the average distance obtained for each tabu list size.
+		dist = 0
+		for j in range(0,trials): dist += calc_route_dist(tabu_search(seed_route, max_step, i, True))
+		dist /= trials
+
+		print("Tabu list size: %d ≈ %d" % (i, dist))
+
+		# Updates the best tabu list size if the average distance is better than the current best.
+		if dist < best_dist:
+			tabu_opt = i
+			best_dist = dist
+
+	print("\nOptimal Parameters for Tabu Search:\n\tTabu List Size ≈ %d\n" % (tabu_opt))
+
+"""
+NAME:   optimise_tabu
+RETURN: None
+DESC:   Generates a set of hyper-parameters to test over. Outputs the average distance of the tabu search algorithm given each set of hyper-parameters, and then outputs the hyper-parameters with the best results. Due to a maximum of 30 iterations for all tests these values are given as approximates.
+"""
+def optimise_genetic(seed_route, max_step, iterations):
+
+	print("\n--------------------------\nGenetic Algorithm - Optimisation\n--------------------------\n")
+
+	tour_size = 2
+	pop_size_base, mutation_p_base, elite_base = 30, 0.3, 0
+
+	pop_size_list = [x for x in range(30,91,30)]
+	mutation_list = [round(mutation_p_base + (x * 0.2), 1) for x in range(0, 3)]
+	elite_list    = [round(elite_base + (x * 0.1), 1) for x in range(0, 3)]
+
+	genetic_hyper = list(product(pop_size_list, mutation_list, elite_list))[1:]
+
+	# Calculates the average route distance using the base hyper-parameter values.
+	pop_size_opt, mutation_p_opt, elite_opt = pop_size_base, mutation_p_base, elite_base
+	best_dist = calc_route_dist(genetic(seed_route, max_step, pop_size_opt, tour_size, mutation_p_opt, elite_opt))
+
+	print("Population size: %d - Mutation probability: %.1f - Elite percentage: %.1f ≈ %d" % (pop_size_opt, mutation_p_opt, elite_opt, best_dist))
+
+	# Iterates over the hyper parameter set.
+	for i in genetic_hyper:
+
+		# Calculates the distance for the current hyper-parameter set.
+		dist = calc_route_dist(genetic(seed_route, max_step, i[0], tour_size, i[1], i[2]))
+
+		print("Population size: %d - Mutation probability: %.1f - Elite percentage: %.1f ≈ %d" % (i[0], i[1], i[2], dist))
+
+		# Updates the best hyper-parameters if the average distance is better than the current best.
+		if dist < best_dist:
+			pop_size_opt, mutation_p_opt, elite_opt = i[0], i[1], i[2]
+			best_dist = dist
+
+	print("\nOptimal Parameters for Genetic Algorithm:\n\tPopulation Size ≈ %d\n\tMutation Probability ≈ %.1f\n\tElite Percentage: %.1f\n" % (pop_size_opt, mutation_p_opt, elite_opt))
+
+
 
 if __name__ == "__main__":
 	main()
