@@ -3,6 +3,7 @@ import math
 import random
 import copy
 from itertools import product
+import time
 
 # Class to store node data.
 class Node:
@@ -13,18 +14,42 @@ class Node:
 
 def main():
 
-	nodes = read_tsp("ATT48.tsp")
-	opt_tour = read_tour("att48.opt.tour", nodes)
-	opt_tour_dist = calc_route_dist(opt_tour)
+	node_file = input("Enter ATT48.tsp filepath (including the filename). If file is in current directory leave blank): ")
+	opt_file = input("Enter att48.opt.tour filepath (including the filename). If file is in current directory leave blank): ")
 
+	# Checks .tsp filename is of correct type. If found reads file and creates list of nodes.
+	try:
+		# If incorrect file path is give, the file is searched for in current directory.
+		if not node_file.endswith('/ATT48.tsp'): nodes = read_tsp()
+		else: nodes = read_tsp(node_file)
+	except:
+		print("File not found.")
+		raise
+
+	# Checks .tour filename is of correct type, reads file and calculaes optimal distance.
+	try: 
+		# If incorrect file path is give, the file is searched for in current directory.
+		if not opt_file.endswith('/att48.opt.tour'): opt_tour = read_tour(nodes)
+		else: opt_tour = read_tour(nodes, opt_file)
+		opt_tour_dist = calc_route_dist(opt_tour)
+	except:
+		# If file is not found, optimal distance is set manually.
+		opt_tour_dist = 10628
+
+	
 	max_step = 3000
 	iterations = 30
 
-	optimise_parameters(nodes, max_step, iterations)
+	# optimise_parameters(nodes, max_step, iterations)
 
-	# test_search_algo(sim_ann, nodes, max_step, iterations, opt_tour, opt_tour_dist)
-	# test_search_algo(tabu_search, nodes, max_step, iterations, opt_tour, opt_tour_dist)
-	# test_search_algo(genetic, nodes, max_step, iterations, opt_tour, opt_tour_dist)
+	print("\n--------------------------\nSimulated Annealing\n--------------------------\n")
+	test_search_algo(sim_ann, nodes, max_step, iterations, opt_tour, opt_tour_dist)
+
+	print("\n--------------------------\nTabu Search\n--------------------------\n")
+	test_search_algo(tabu_search, nodes, max_step, iterations, opt_tour, opt_tour_dist)
+
+	print("\n--------------------------\nGenetic Algorithm\n--------------------------\n")
+	test_search_algo(genetic, nodes, max_step, iterations, opt_tour, opt_tour_dist)
 
 
 """
@@ -40,10 +65,7 @@ NAME:   read_tsp
 RETURN: List of Node objects.
 DESC:   Given a filename that ends in '.tsp', it will read the file and construct a list of node objects for each node in the file.
 """
-def read_tsp(filename):
-
-	# Checks file is of correct type.
-	if not filename.endswith('.tsp'): raise Exception("Filename should end with '.tsp'.")
+def read_tsp(filename="ATT48.tsp"):
 
 	# Gets node data.
 	f = read_file_remove_header(filename, "NODE_COORD_SECTION\n")
@@ -62,10 +84,7 @@ NAME:   read_tour
 RETURN: List of Node objects.
 DESC:   Given a filename that ends in '.tour', and a list of nodes, it will read the file and construct a list of node in the tour order.
 """
-def read_tour(filename, nodes):
-
-	# Checks filename is of correct type.
-	if not filename.endswith('.tour'): raise Exception("Filename should end with '.tour'.")
+def read_tour(nodes, filename="att48.opt.tour"):
 
 	# Gets tour order.
 	f = read_file_remove_header(filename, "TOUR_SECTION\n")
@@ -154,44 +173,40 @@ DESC:   Runs a given search algorithm a given amount of times and outputs all th
 """
 def test_search_algo(algo, nodes, max_step, iterations, opt_tour, opt_tour_dist):
 	
-	average = 0
+	average, average_time = 0, 0
 
 	# Runs the search algorithm repeatedly for the amount of iterations specified, and stores all solutions.
 	for i in range(0, iterations):
+
+		start = time.time()
 		solution = algo(nodes, max_step)
+		end = time.time()
 
 		# Checks each solution is valid, and outputs each solution distance.
-
-		dist_colour, valid_colour = "\33[31m", "\33[31m"
-
 		d = calc_route_dist(solution)
 		valid = valid_route(nodes, solution)
+		time_taken = end - start
 
-		if d <= (opt_tour_dist * 1.1): dist_colour = "\33[32m"
-		elif d <= (opt_tour_dist * 1.2): dist_colour = "\33[34m"
-		if valid == True: valid_colour = "\33[32m"
+		# Used to colour the distance and validity values.
+		dist_colour, valid_colour = "\33[31m", "\33[31m"          # Initial colour red.
+		if d <= (opt_tour_dist * 1.1): dist_colour = "\33[32m"    # If distance is within 10% of the optimal set to green.
+		elif d <= (opt_tour_dist * 1.2): dist_colour = "\33[34m"  # If distance is within 20% of the optimal set to blue.
+		if valid == True: valid_colour = "\33[32m"                # If route is valid set to green.
 
 		average += d
+		average_time += time_taken
 
-		print("Iteration %d - Distance: %s%d\33[0m - Valid: %s%r\33[0m" % (i, dist_colour, d, valid_colour, valid))
-
-		if d <= opt_tour_dist:
-			print("----------------------------")
-			print_route(solution)
-			print_route(opt_tour_dist)
-			print(compare_routes(solution, opt_tour))
-			# print("\33[34mOptimal Solution Found!\33[0m")
-			print("----------------------------")
-			break
+		print("Iteration %d - Distance: %s%d\33[0m - Valid: %s%r\33[0m - Time: %.2f" % (i, dist_colour, d, valid_colour, valid, time_taken))
 	
 	average /= iterations
+	average_time /= iterations
 
 	dist_colour = "\33[31m"
 	if average <= (opt_tour_dist * 1.1): dist_colour = "\33[32m"
 	elif average <= (opt_tour_dist * 1.2): dist_colour = "\33[34m"
 
 	# Outputs the average distance obtained over all iterations.
-	print("\n\nAverage Distance: %s%d\33[0m\n\n" % (dist_colour, average))
+	print("\n\nAverage Distance: %s%d\33[0m\nAverage Time = %.2f\n\n" % (dist_colour, average, average_time))
 
 """
 NAME:   valid_route
@@ -415,7 +430,7 @@ NAME:   genetic
 RETURN: List of Node objects.
 DESC:   The genetic evolutionary algorithm.
 """
-def genetic(nodes, max_generations, pop_size = 30, tour_size = 2, mutation_p = 0.5, elite = 0.1):
+def genetic(nodes, max_generations, pop_size = 90, tour_size = 2, mutation_p = 0.5, elite = 0.1):
 
 	# Sets the elitism constant for each generation.
 	elite = math.ceil(pop_size * elite)
