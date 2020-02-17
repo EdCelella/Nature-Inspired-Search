@@ -16,6 +16,7 @@ def main():
 
 	node_file = input("Enter ATT48.tsp filepath (including the filename). If file is in current directory leave blank): ")
 	opt_file = input("Enter att48.opt.tour filepath (including the filename). If file is in current directory leave blank): ")
+	run_opt = input("Do you wish to run the optimal parameter tests (input character 'y' for yes, any other for no)? ")
 
 	# Checks .tsp filename is of correct type. If found reads file and creates list of nodes.
 	try:
@@ -40,7 +41,8 @@ def main():
 	max_step = 3000
 	iterations = 30
 
-	# optimise_parameters(nodes, max_step, iterations)
+	if run_opt == 'y':
+		optimise_parameters(nodes, max_step, iterations)
 
 	print("\n--------------------------\nSimulated Annealing\n--------------------------\n")
 	test_search_algo(sim_ann, nodes, max_step, iterations, opt_tour, opt_tour_dist)
@@ -670,9 +672,9 @@ def optimise_tabu(seed_route, max_step, iterations):
 	print("\nOptimal Parameters for Tabu Search:\n\tTabu List Size ≈ %d\n" % (tabu_opt))
 
 """
-NAME:   optimise_tabu
+NAME:   optimise_Genetic
 RETURN: None
-DESC:   Generates a set of hyper-parameters to test over. Outputs the average distance of the tabu search algorithm given each set of hyper-parameters, and then outputs the hyper-parameters with the best results. Due to a maximum of 30 iterations for all tests these values are given as approximates.
+DESC:   Generates a set of hyper-parameters to test over. Outputs the average distance of the genetic algorithm given each set of hyper-parameters, and then outputs the hyper-parameters with the best results. Due to a maximum of 30 iterations for all tests these values are given as approximates.
 """
 def optimise_genetic(seed_route, max_step, iterations):
 
