@@ -28,5 +28,5 @@ The program attempts to solve the travelling salesman problem specified in the f
 
 ## License
 
-This project is licensed under the terms of the [Creative Commons Attribution 4.0 International Public license](License.md)
+This project is licensed under the terms of the [Creative Commons Attribution 4.0 International Public license](License.md).
 
