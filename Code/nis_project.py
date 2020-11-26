@@ -14,8 +14,8 @@ class Node:
 
 def main():
 
-	node_file = input("Enter ATT48.tsp filepath (including the filename). If file is in current directory leave blank): ")
-	opt_file = input("Enter att48.opt.tour filepath (including the filename). If file is in current directory leave blank): ")
+	node_file = input("Enter ATT48.tsp filepath (including the filename). If file is in current directory leave blank: ")
+	opt_file = input("Enter att48.opt.tour filepath (including the filename). If file is in current directory leave blank: ")
 	run_opt = input("Do you wish to run the optimal parameter tests (input character 'y' for yes, any other for no)? ")
 
 	# Checks .tsp filename is of correct type. If found reads file and creates list of nodes.
@@ -40,6 +40,25 @@ def main():
 	
 	max_step = 3000
 	iterations = 30
+
+	# Takes input for number of iterations. If input is invalid, default value is used.
+	response = ""
+	try:
+		response = input("Enter how many independent runs of each algorithm to perform (leave blank for default value of 30 to be used): ")
+		if int(response) < 0: raise
+		if (response != ''): iterations = int(response)
+	except:
+		print("Error. Value of '", response, "' cannot be used. Default value of 30 has been set.")
+
+	# Takes input for number of steps. If input is invalid, default value is used.
+	response = ""
+	try:
+		response = input("Enter how many iterations the algorithms can perform each run (leave blank for default value of 3000 to be used): ")
+		if int(response) < 0: raise
+		if (response != ''): max_step = int(response)
+	except:
+		print("Error. Value of '", response, "' cannot be used. Default value of 30 has been set.")
+
 
 	if run_opt == 'y':
 		optimise_parameters(nodes, max_step, iterations)
@@ -584,8 +603,8 @@ def optimise_parameters(nodes, max_step, iterations):
 	seed_route = copy.deepcopy(nodes)
 	random.shuffle(seed_route)
 
-	# optimise_sim_ann(seed_route, max_step, iterations)
-	# optimise_tabu(seed_route, max_step, iterations)
+	optimise_sim_ann(seed_route, max_step, iterations)
+	optimise_tabu(seed_route, max_step, iterations)
 	optimise_genetic(seed_route, max_step, iterations)
 
 """
